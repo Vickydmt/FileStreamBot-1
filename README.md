@@ -46,7 +46,7 @@
 
 <p align="center">
     <a herf="https://github.com/DeekshithSH/FileStreamBot">
-        <img src="https://www.flaticon.com/premium-icon/icons/svg/2626/2626281.svg" height="100" width="100" alt="Telegram Logo">
+        <img src="https://telegra.ph/file/a8bb3f6b334ad1200ddb4.png" height="100" width="100" alt="Telegram Logo">
     </a>
 </p>
 <p align='center'>
@@ -54,12 +54,21 @@
 </p>
 
 ### Original Repository
+[FileStreamBot](https://github.com/SpringsFern/FileStreamBot) is a Modified Version of [TG-FileStreamBot](https://github.com/EverythingSuckz/TG-FileStreamBot) by [EverythingSuckz](https://github.com/EverythingSuckz/)
 
 The main working part was taken from [Megatron](https://github.com/eyaadh/megadlbot_oss) and thanks to [eyaadh](https://github.com/eyaadh) for his awesome project.
 
 ## How to make your own
 
 <!-- Host the bot on VPS or Locally -->
+
+### Deploy on Heroku
+
+Press the below button to fast deploy to Heroku
+
+- [![Deploy To Heroku](https://www.herokucdn.com/deploy/button.svg)](https://heroku.com/deploy)
+
+then goto the <a href="#mandatory-vars">variables tab</a> for more info on setting up environmental variables.
 
 ### Host it on VPS or Locally
 
@@ -148,15 +157,23 @@ you may also add as many as bots you want. (max limit is not tested yet)
 
 `PING_INTERVAL` : The time in ms you want the servers to be pinged each time to avoid sleeping (Only for Heroku). Defaults to `1200` or 20 minutes.
 
-`UPDATES_CHANNEL` : Your Telegram Channel
+`UPDATES_CHANNEL` : Your Telegram Channel Username without @
 
-`FORCE_UPDATES_CHANNEL` : Set to True, so every user have to Join update channel to use the bot.
+`FORCE_UPDATES_CHANNEL` : Set to True, if you want every user Join update channel to use the bot.
 
 `SESSION_NAME` : Name for the Database created on your MongoDB. Defaults to `F2LxBot`
 
 `BANNED_CHANNELS` : Put IDs of Banned Channels where bot will not work. You can add multiple IDs & separate with <kbd>Space</kbd>.
 
-`KEEP_ALIVE` : If you want to make the server ping itself every `PING_INTERVAL` seconds to avoid sleeping. Helpful in PaaS Free tiers. Defaults to `False`
+`KEEP_ALIVE` : If you want to make the server ping itself every
+
+`IMAGE_FILEID` : Photo to send with /myfiles command. Put file_id to send a photo that exists on the Telegram servers or Put an HTTP URL to get a photo from the Internet
+
+`TOS` : URL to your Terms of Service Text
+
+`MODE` should be set to secondary if you only want to use the server for serving files
+
+`LINK_LIMIT`: Limit Number of Links a User Can Generate. Value should be a Number
 
 ## How to use the bot
 
@@ -186,7 +203,7 @@ You can contact either via my [Telegram Group](https://xn--r1a.click/AWeirdStrin
 ## Credits
 
 - [Me](https://xn--r1a.click/DeekshithSH)
-- [EverythingSuckz](https://github.com/EverythingSuckz) for his [FileStreamBot](https://github.com/EverythingSuckz/FileStreamBot)
+- [EverythingSuckz](https://github.com/EverythingSuckz) for his [TG-FileStreamBot](https://github.com/EverythingSuckz/TG-FileStreamBot)
 - [Avishkar Patil](https://github.com/avipatilpro) for his [FileStreamBot](https://github.com/avipatilpro/FileStreamBot)
 - [eyaadh](https://github.com/eyaadh) for his awesome [Megatron Bot](https://github.com/eyaadh/megadlbot_oss).
 - [BlackStone](https://github.com/eyMarv) for adding multi-client support.

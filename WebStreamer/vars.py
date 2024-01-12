@@ -1,5 +1,5 @@
 # This file is a part of FileStreamBot
-from  urllib import request
+from urllib import request
 from os import environ
 from dotenv import load_dotenv
 
@@ -31,7 +31,7 @@ class Var(object):
     OWNER_ID = int(environ.get('OWNER_ID', '777000'))
     SESSION_NAME = str(environ.get('SESSION_NAME', 'F2LxBot'))
     FORCE_UPDATES_CHANNEL = environ.get('FORCE_UPDATES_CHANNEL', False)
-    FORCE_UPDATES_CHANNEL = True if str(FORCE_UPDATES_CHANNEL).lower() == "true" and UPDATES_CHANNEL != 'aredirect' else False
+    FORCE_UPDATES_CHANNEL = True if str(FORCE_UPDATES_CHANNEL).lower() == "true" else False
 
     BANNED_CHANNELS = list(set(int(x) for x in str(environ.get("BANNED_CHANNELS", "-1001296894100")).split()))
     KEEP_ALIVE = str(environ.get("KEEP_ALIVE", "0").lower()) in  ("1", "true", "t", "yes", "y")
@@ -41,3 +41,7 @@ class Var(object):
         response = request.urlopen(TOS)
         data = response.read().decode('utf-8')
         TOS = data.strip()
+
+    MODE = environ.get("MODE", "primary")
+    SECONDARY = True if MODE.lower() == "secondary" else False
+    LINK_LIMIT = int(environ.get("LINK_LIMIT")) if "LINK_LIMIT" in environ else None

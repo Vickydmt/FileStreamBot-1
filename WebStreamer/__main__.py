@@ -3,6 +3,7 @@
 import sys
 import asyncio
 import logging
+import traceback
 import logging.handlers as handlers
 from .vars import Var
 from aiohttp import web
@@ -34,22 +35,27 @@ loop = asyncio.get_event_loop()
 
 async def start_services():
     print()
+    if Var.SECONDARY:
+        print("------------------ Starting as Secondary Server ------------------")
+    else:
+        print("------------------- Starting as Primary Server -------------------")
+    print()
     print("-------------------- Initializing Telegram Bot --------------------")
     await StreamBot.start()
     bot_info = await StreamBot.get_me()
     StreamBot.id = bot_info.id
     StreamBot.username = bot_info.username
+    StreamBot.fname=bot_info.first_name
     print("------------------------------ DONE ------------------------------")
     print()
-    print(
-        "---------------------- Initializing Clients ----------------------"
-    )
+    print("---------------------- Initializing Clients ----------------------")
     await initialize_clients()
     print("------------------------------ DONE ------------------------------")
     if Var.KEEP_ALIVE:
         print("------------------ Starting Keep Alive Service ------------------")
         print()
         asyncio.create_task(ping_server())
+    print()
     print("--------------------- Initializing Web Server ---------------------")
     await server.setup()
     await web.TCPSite(server, Var.BIND_ADDRESS, Var.PORT).start()
@@ -73,7 +79,7 @@ if __name__ == "__main__":
     except KeyboardInterrupt:
         pass
     except Exception as err:
-        logging.error(err.with_traceback(None))
+        logging.error(traceback.format_exc())
     finally:
         loop.run_until_complete(cleanup())
         loop.stop()

@@ -4,17 +4,14 @@ import datetime
 import math
 from WebStreamer import __version__
 from WebStreamer.bot import StreamBot
+from WebStreamer.utils.bot_utils import file_format
 from WebStreamer.vars import Var
 from WebStreamer.utils.Translation import Language, BUTTON
 from WebStreamer.utils.database import Database
 from WebStreamer.utils.human_readable import humanbytes
 from WebStreamer.server.exceptions import FIleNotFound
 from pyrogram.types import InlineKeyboardMarkup, InlineKeyboardButton, CallbackQuery
-from pyrogram.file_id import FileId, FileType, PHOTO_TYPES
 db = Database(Var.DATABASE_URL, Var.SESSION_NAME)
-
-
-deldbtnmsg=["Your Already Deleted the Link", "You can't undo the Action", "You can Resend the File to Regenerate New Link", "Why Clicking me Your Link is Dead", "This is Just a Button Showing that Your Link is Deleted"]
 
 @StreamBot.on_callback_query()
 async def cb_data(bot, update: CallbackQuery):
@@ -42,15 +39,13 @@ async def cb_data(bot, update: CallbackQuery):
         await update.answer("N/A", True)
     elif usr_cmd[0] == "close":
         await update.message.delete()
-    # elif usr_cmd[0] == "msgdeleted":
-    #     await update.answer(random.choice(deldbtnmsg), show_alert=True)
     elif usr_cmd[0] == "msgdelconf2":
         await update.message.edit_caption(
         caption= "<b>Do You Want to Delete the file<b>\n" + update.message.caption,
         reply_markup=InlineKeyboardMarkup([[InlineKeyboardButton("Yes", callback_data=f"msgdelyes_{usr_cmd[1]}_{usr_cmd[2]}"), InlineKeyboardButton("No", callback_data=f"myfile_{usr_cmd[1]}_{usr_cmd[2]}")]])
     )
     elif usr_cmd[0] == "msgdelyes":
-        await delete_user_file(usr_cmd[1], int(usr_cmd[2]), update)
+        await delete_user_file(usr_cmd[1], update)
         return
     elif usr_cmd[0] == "userfiles":
         file_list, total_files = await gen_file_list_button(int(usr_cmd[1]), update.from_user.id)
@@ -64,6 +59,10 @@ async def cb_data(bot, update: CallbackQuery):
     elif usr_cmd[0] == "accepttos":
         await db.agreed_tos(int(usr_cmd[1]))
         await update.edit_message_reply_markup(reply_markup=InlineKeyboardMarkup([[InlineKeyboardButton("✅ I accepted the TOS", callback_data="N/A")]]))
+    elif usr_cmd[0] == "sendfile":
+        myfile = await db.get_file(usr_cmd[1])
+        await update.answer(f"Sending File {myfile['file_name']}")
+        await update.message.reply_cached_media(myfile['file_id'])
     else:
         await update.message.delete()
 
@@ -94,22 +93,7 @@ async def gen_file_menu(_id, file_list_no, update: CallbackQuery):
         await update.answer("File Not Found")
         return
 
-    file_id=FileId.decode(myfile_info['file_id'])
-
-    if file_id.file_type in PHOTO_TYPES:
-        file_type="Photo"
-    elif file_id.file_type == FileType.VOICE:
-        file_type="Voice"
-    elif file_id.file_type in (FileType.VIDEO, FileType.ANIMATION, FileType.VIDEO_NOTE):
-        file_type="Video"
-    elif file_id.file_type == FileType.DOCUMENT:
-        file_type="Document"
-    elif file_id.file_type == FileType.STICKER:
-        file_type="Sticker"
-    elif file_id.file_type == FileType.AUDIO:
-        file_type="Audio"
-    else:
-        file_type = "Unknown"
+    file_type=file_format(myfile_info['file_id'])
 
     page_link = f"{Var.URL}watch/{myfile_info['_id']}"
     stream_link = f"{Var.URL}dl/{myfile_info['_id']}"
@@ -121,13 +105,13 @@ async def gen_file_menu(_id, file_list_no, update: CallbackQuery):
         reply_markup=InlineKeyboardMarkup(
             [
                 [InlineKeyboardButton("Back", callback_data="userfiles_{}".format(file_list_no)), InlineKeyboardButton("Delete Link", callback_data=f"msgdelconf2_{myfile_info['_id']}_{file_list_no}")],
-                [InlineKeyboardButton("🖥STREAM", url=page_link), InlineKeyboardButton("Dᴏᴡɴʟᴏᴀᴅ 📥", url=stream_link)]
+                [InlineKeyboardButton("🖥STREAM", url=page_link), InlineKeyboardButton("Dᴏᴡɴʟᴏᴀᴅ 📥", url=stream_link)],
+                [InlineKeyboardButton("Get File", callback_data=f"sendfile_{myfile_info['_id']}")]
             ]
             )
         )
 
-async def delete_user_file(_id, file_list_no: int, update:CallbackQuery):
-
+async def delete_user_file(_id, update:CallbackQuery):
     try:
         myfile_info=await db.get_file(_id)
     except FIleNotFound:
