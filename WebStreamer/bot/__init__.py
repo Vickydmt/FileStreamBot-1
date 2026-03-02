@@ -23,5 +23,7 @@ StreamBot = Client(
     no_updates=NO_UPDATES
 )
 
+print(f"Debug: StreamBot initialized with plugins: {PLUGINS} / {StreamBot.plugins}")
+
 multi_clients = {}
 work_loads = {}
