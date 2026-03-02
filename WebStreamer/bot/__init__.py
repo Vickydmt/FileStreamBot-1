@@ -8,7 +8,7 @@ if Var.SECONDARY:
     PLUGINS=None
     NO_UPDATES=True
 else:
-    PLUGINS={"root": "WebStreamer/bot/plugins"}
+    PLUGINS={"root": "WebStreamer.bot.plugins"}
     NO_UPDATES=None
 
 StreamBot = Client(
