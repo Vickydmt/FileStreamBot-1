@@ -65,12 +65,18 @@ class ByteStreamer:
         media_session = client.media_sessions.get(file_id.dc_id, None)
 
         if media_session is None:
+            dc_option = await client.get_dc_option(file_id.dc_id, is_media=True)
+            server_address = dc_option.ip_address
+            port = dc_option.port
+
             if file_id.dc_id != await client.storage.dc_id():
                 media_session = Session(
                     client,
                     file_id.dc_id,
+                    server_address,
+                    port,
                     await Auth(
-                        client, file_id.dc_id, await client.storage.test_mode()
+                        client, file_id.dc_id, server_address, port, await client.storage.test_mode()
                     ).create(),
                     await client.storage.test_mode(),
                     is_media=True,
@@ -102,6 +108,8 @@ class ByteStreamer:
                 media_session = Session(
                     client,
                     file_id.dc_id,
+                    server_address,
+                    port,
                     await client.storage.auth_key(),
                     await client.storage.test_mode(),
                     is_media=True,
