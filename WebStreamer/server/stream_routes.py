@@ -83,14 +83,11 @@ async def media_streamer(request: web.Request, db_id: str):
 
     if faster_client in class_cache:
         tg_connect = class_cache[faster_client]
-        logging.debug("Using cached ByteStreamer object for client %s", index)
     else:
-        logging.debug("Creating new ByteStreamer object for client %s", index)
         tg_connect = utils.ByteStreamer(faster_client)
         class_cache[faster_client] = tg_connect
-    logging.debug("before calling get_file_properties")
+
     file_id = await tg_connect.get_file_properties(db_id, multi_clients)
-    logging.debug("after calling get_file_properties")
 
     file_size = file_id.file_size
 

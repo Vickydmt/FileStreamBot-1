@@ -23,10 +23,9 @@ async def initialize_clients():
     main_bot_session = await StreamBot.export_session_string()
 
     if not all_tokens:
-        print(f"No MULTI_TOKEN found, creating {Var.WORKERS} parallel workers with main session")
-        for i in range(1, Var.WORKERS + 1):
-            all_tokens[i] = main_bot_session
-
+        print("No MULTI_TOKEN found, running in single-client mode for maximum stability")
+        # No extra workers created by default to avoid account throttling
+    
     multi_clients[0] = StreamBot
     work_loads[0] = 0
 

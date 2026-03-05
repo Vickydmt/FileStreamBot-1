@@ -124,56 +124,33 @@ class ByteStreamer:
         work_loads[index] += 1
         logging.debug("Starting to yield file with client %s.", index)
 
-        from WebStreamer.bot import multi_clients
-        multi_clients_list = list(multi_clients.values())
+        # Cache the media session for this specific DC
+        if not hasattr(self, "cached_session"):
+            self.cached_session = None
         
-        if not hasattr(self, "cached_sessions"):
-            self.cached_sessions = {}
-        
-        missing_clients = [c for c in multi_clients_list if c not in self.cached_sessions]
-        if missing_clients:
-            logging.debug("Initializing %s media sessions in parallel...", len(missing_clients))
-            try:
-                new_sessions = await asyncio.wait_for(
-                    asyncio.gather(*[self.generate_media_session(c, file_id) for c in missing_clients]),
-                    timeout=10
-                )
-                for c, s in zip(missing_clients, new_sessions):
-                    self.cached_sessions[c] = s
-            except asyncio.TimeoutError:
-                logging.error("Timeout while creating sessions. Some clients might be slow.")
-            except Exception as e:
-                logging.error(f"Error creating sessions: {e}")
-
-        sessions = [self.cached_sessions[c] for c in multi_clients_list if c in self.cached_sessions]
-        if not sessions:
-            # Fallback to the main client if everything fails
-            if client not in self.cached_sessions:
-                self.cached_sessions[client] = await self.generate_media_session(client, file_id)
-            sessions = [self.cached_sessions[client]]
+        if not self.cached_session:
+            logging.debug("Initializing media session for DC %s...", file_id.dc_id)
+            self.cached_session = await self.generate_media_session(client, file_id)
 
         location = await self.get_location(file_id)
 
-        async def fetch(s, off):
+        async def fetch(off):
             for i in range(3):
                 try:
-                    # Added timeout to prevent hanging the whole stream
                     r = await asyncio.wait_for(
-                        s.invoke(raw.functions.upload.GetFile(location=location, offset=off, limit=chunk_size)),
-                        timeout=30
+                        self.cached_session.invoke(raw.functions.upload.GetFile(location=location, offset=off, limit=chunk_size)),
+                        timeout=15
                     )
                     if isinstance(r, raw.types.upload.File):
                         return r.bytes
-                except asyncio.TimeoutError:
-                    logging.error(f"Chunk fetch timeout (try {i+1})")
                 except Exception as e:
                     logging.error(f"Chunk fetch error (try {i+1}): {e}")
                 await asyncio.sleep(1)
             return b""
 
         try:
-            # Low concurrency (8) is safer for accounts that hit FloodWait
-            concurrency = min(Var.DOWNLOAD_CONCURRENCY, 8) 
+            # 24 is the stable maximum for a single Telegram account
+            concurrency = min(Var.DOWNLOAD_CONCURRENCY, 24) 
             tasks = {}
             next_part = 1
             fetch_part = 1
@@ -181,15 +158,13 @@ class ByteStreamer:
 
             while next_part <= part_count:
                 while fetch_part <= part_count and len(tasks) < concurrency:
-                    session = sessions[(fetch_part - 1) % len(sessions)]
-                    tasks[fetch_part] = asyncio.create_task(fetch(session, current_offset))
+                    tasks[fetch_part] = asyncio.create_task(fetch(current_offset))
                     fetch_part += 1
                     current_offset += chunk_size
                 
                 chunk = await tasks.pop(next_part)
                 if not chunk:
-                    logging.error("Failed to fetch part %s, stopping download.", next_part)
-                    break
+                    logging.error("Failed to fetch part %s, skipping...", next_part)
                 
                 if part_count == 1:
                     yield chunk[first_part_cut:last_part_cut]
@@ -202,8 +177,8 @@ class ByteStreamer:
                 
                 next_part += 1
 
-        except (TimeoutError, AttributeError):
-            pass
+        except Exception as e:
+            logging.error(f"Streaming error: {e}")
         finally:
             logging.debug("Finished yielding file with %s parts.", next_part - 1)
             work_loads[index] -= 1
