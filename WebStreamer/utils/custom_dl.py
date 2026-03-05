@@ -8,6 +8,7 @@ from pyrogram.session import Session, Auth
 from pyrogram.errors import AuthBytesInvalid
 from pyrogram.file_id import FileId, FileType, ThumbnailSource
 from WebStreamer.bot import work_loads
+from WebStreamer.vars import Var
 from .file_properties import get_file_ids
 
 
@@ -119,55 +120,92 @@ class ByteStreamer:
         part_count: int,
         chunk_size: int,
     ) -> AsyncGenerator[bytes, None]:
-        """
-        Custom generator that yields the bytes of the media file.
-        Modded from <https://github.com/eyaadh/megadlbot_oss/blob/master/mega/telegram/utils/custom_download.py#L20>
-        Thanks to Eyaadh <https://github.com/eyaadh>
-        """
         client = self.client
         work_loads[index] += 1
-        logging.debug("Starting to yielding file with client %s.", index)
-        media_session = await self.generate_media_session(client, file_id)
+        logging.debug("Starting to yield file with client %s.", index)
 
-        current_part = 1
+        from WebStreamer.bot import multi_clients
+        multi_clients_list = list(multi_clients.values())
+        
+        if not hasattr(self, "cached_sessions"):
+            self.cached_sessions = {}
+        
+        missing_clients = [c for c in multi_clients_list if c not in self.cached_sessions]
+        if missing_clients:
+            logging.debug("Initializing %s media sessions in parallel...", len(missing_clients))
+            try:
+                new_sessions = await asyncio.wait_for(
+                    asyncio.gather(*[self.generate_media_session(c, file_id) for c in missing_clients]),
+                    timeout=10
+                )
+                for c, s in zip(missing_clients, new_sessions):
+                    self.cached_sessions[c] = s
+            except asyncio.TimeoutError:
+                logging.error("Timeout while creating sessions. Some clients might be slow.")
+            except Exception as e:
+                logging.error(f"Error creating sessions: {e}")
+
+        sessions = [self.cached_sessions[c] for c in multi_clients_list if c in self.cached_sessions]
+        if not sessions:
+            # Fallback to the main client if everything fails
+            if client not in self.cached_sessions:
+                self.cached_sessions[client] = await self.generate_media_session(client, file_id)
+            sessions = [self.cached_sessions[client]]
 
         location = await self.get_location(file_id)
 
-        try:
-            r = await media_session.invoke(
-                raw.functions.upload.GetFile(
-                    location=location, offset=offset, limit=chunk_size
-                ),
-            )
-            if isinstance(r, raw.types.upload.File):
-                while True:
-                    chunk = r.bytes
-                    if not chunk:
-                        break
-                    elif part_count == 1:
-                        yield chunk[first_part_cut:last_part_cut]
-                    elif current_part == 1:
-                        yield chunk[first_part_cut:]
-                    elif current_part == part_count:
-                        yield chunk[:last_part_cut]
-                    else:
-                        yield chunk
-
-                    current_part += 1
-                    offset += chunk_size
-
-                    if current_part > part_count:
-                        break
-
-                    r = await media_session.invoke(
-                        raw.functions.upload.GetFile(
-                            location=location, offset=offset, limit=chunk_size
-                        ),
+        async def fetch(s, off):
+            for i in range(3):
+                try:
+                    # Added timeout to prevent hanging the whole stream
+                    r = await asyncio.wait_for(
+                        s.invoke(raw.functions.upload.GetFile(location=location, offset=off, limit=chunk_size)),
+                        timeout=30
                     )
+                    if isinstance(r, raw.types.upload.File):
+                        return r.bytes
+                except asyncio.TimeoutError:
+                    logging.error(f"Chunk fetch timeout (try {i+1})")
+                except Exception as e:
+                    logging.error(f"Chunk fetch error (try {i+1}): {e}")
+                await asyncio.sleep(1)
+            return b""
+
+        try:
+            # Low concurrency (8) is safer for accounts that hit FloodWait
+            concurrency = min(Var.DOWNLOAD_CONCURRENCY, 8) 
+            tasks = {}
+            next_part = 1
+            fetch_part = 1
+            current_offset = offset
+
+            while next_part <= part_count:
+                while fetch_part <= part_count and len(tasks) < concurrency:
+                    session = sessions[(fetch_part - 1) % len(sessions)]
+                    tasks[fetch_part] = asyncio.create_task(fetch(session, current_offset))
+                    fetch_part += 1
+                    current_offset += chunk_size
+                
+                chunk = await tasks.pop(next_part)
+                if not chunk:
+                    logging.error("Failed to fetch part %s, stopping download.", next_part)
+                    break
+                
+                if part_count == 1:
+                    yield chunk[first_part_cut:last_part_cut]
+                elif next_part == 1:
+                    yield chunk[first_part_cut:]
+                elif next_part == part_count:
+                    yield chunk[:last_part_cut]
+                else:
+                    yield chunk
+                
+                next_part += 1
+
         except (TimeoutError, AttributeError):
             pass
         finally:
-            logging.debug("Finished yielding file with %s parts.", current_part)
+            logging.debug("Finished yielding file with %s parts.", next_part - 1)
             work_loads[index] -= 1
 
 

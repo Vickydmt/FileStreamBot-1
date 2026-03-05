@@ -17,25 +17,30 @@ async def initialize_clients():
             )
         )
     )
+    
+    # Export session string from main bot to reuse for additional workers
+    # This avoids auth.ImportBotAuthorization FloodWait
+    main_bot_session = await StreamBot.export_session_string()
+
     if not all_tokens:
-        multi_clients[0] = StreamBot
-        work_loads[0] = 0
-        print("No additional clients found, using default client")
-        return
+        print(f"No MULTI_TOKEN found, creating {Var.WORKERS} parallel workers with main session")
+        for i in range(1, Var.WORKERS + 1):
+            all_tokens[i] = main_bot_session
+
+    multi_clients[0] = StreamBot
+    work_loads[0] = 0
 
     async def start_client(client_id, token):
         try:
             if len(token) >= 100:
                 session_string=token
                 bot_token=None
-                print(f'Starting Client - {client_id} Using Session String')
+                # print(f'Starting Client - {client_id} Using Session String')
             else:
                 session_string=None
                 bot_token=token
                 print(f'Starting Client - {client_id} Using Bot Token')
-            if client_id == len(all_tokens):
-                await asyncio.sleep(2)
-                print("This will take some time, please wait...")
+            
             client = await Client(
                 name=str(client_id),
                 api_id=Var.API_ID,
@@ -52,8 +57,15 @@ async def initialize_clients():
         except Exception:
             logging.error("Failed starting Client - {%s} Error:", client_id, exc_info=True)
 
-    clients = await asyncio.gather(*[start_client(i, token) for i, token in all_tokens.items()])
-    multi_clients.update(dict(clients))
+    if all_tokens:
+        clients = []
+        for i, token in all_tokens.items():
+            res = await start_client(i, token)
+            if res:
+                clients.append(res)
+            await asyncio.sleep(1) # Small delay to avoid auth flood
+        multi_clients.update(dict(clients))
+    
     if len(multi_clients) != 1:
         Var.MULTI_CLIENT = True
-        print("Multi-Client Mode Enabled")
+        print(f"Multi-Client Mode Enabled with {len(multi_clients)} clients")

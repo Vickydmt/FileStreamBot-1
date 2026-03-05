@@ -1,6 +1,7 @@
 # This file is a part of TG-FileStreamBot
 
 import sys
+import random
 import asyncio
 import traceback
 import logging
@@ -34,6 +35,13 @@ server = web.AppRunner(web_server())
 loop = asyncio.get_event_loop()
 
 async def start_services():
+    if Var.HF_TOKEN:
+        try:
+            from huggingface_hub import login
+            login(token=Var.HF_TOKEN)
+            print("------------------ Logged into Hugging Face ------------------")
+        except Exception as e:
+            print(f"Failed to login to Hugging Face: {e}")
     print()
     if Var.SECONDARY:
         print("------------------ Starting as Secondary Server ------------------")
@@ -41,6 +49,10 @@ async def start_services():
         print("------------------- Starting as Primary Server -------------------")
     print()
     print("-------------------- Initializing Telegram Bot --------------------")
+    # Staggered login to avoid FloodWait across multiple spaces
+    delay = random.randint(5, 20)
+    print(f"Waiting {delay} seconds before login to avoid FloodWait...")
+    await asyncio.sleep(delay)
     await StreamBot.start()
     bot_info = await StreamBot.get_me()
     StreamBot.id = bot_info.id
@@ -71,7 +83,10 @@ async def start_services():
 
 async def cleanup():
     await server.cleanup()
-    await StreamBot.stop()
+    try:
+        await StreamBot.stop()
+    except Exception:
+        pass
 
 if __name__ == "__main__":
     try:

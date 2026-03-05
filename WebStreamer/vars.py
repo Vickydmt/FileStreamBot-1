@@ -12,7 +12,10 @@ class Var(object):
     API_HASH = str(environ.get("API_HASH"))
     BOT_TOKEN = str(environ.get("BOT_TOKEN"))
     SLEEP_THRESHOLD = int(environ.get("SLEEP_THRESHOLD", "60"))  # 1 minte
-    WORKERS = int(environ.get("WORKERS", "6"))  # 6 workers = 6 commands at once
+    WORKERS = int(environ.get("WORKERS", "10"))
+    DOWNLOAD_CONCURRENCY = int(environ.get("DOWNLOAD_CONCURRENCY", "40"))
+    WORKER_URL = str(environ.get("WORKER_URL", ""))
+    MULTI_URLS = [x.strip() for x in str(environ.get("MULTI_URLS", "")).split(",") if x.strip()]
     BIN_CHANNEL = int(
         environ.get("BIN_CHANNEL", None)
     )  # you NEED to use a CHANNEL when you're using MULTI_CLIENT
@@ -43,3 +46,4 @@ class Var(object):
     MODE = environ.get("MODE", "primary")
     SECONDARY = True if MODE.lower() == "secondary" else False
     LINK_LIMIT = int(environ.get("LINK_LIMIT")) if "LINK_LIMIT" in environ else None
+    HF_TOKEN = environ.get("HF_TOKEN", None)

@@ -1,6 +1,15 @@
+---
+title: TG FileStreamBot
+emoji: 🚀
+colorFrom: blue
+colorTo: indigo
+sdk: docker
+pinned: false
+---
 > ⚠️ **NOTICE**  
 > This repository has been **rewritten from scratch** and is now maintained at a new location:  
 > 👉 [https://github.com/SpringsFern/tg-filestream](https://github.com/DeekshithSH/tg-filestream)
+
 
 <h1>Telegram File Stream Bot</h3>
 <p>

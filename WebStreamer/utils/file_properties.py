@@ -107,11 +107,22 @@ def get_file_info(message):
         }
 
 async def update_file_id(msg_id, multi_clients):
-    file_ids={}
-    for _, client in multi_clients.items():
-        log_msg=await client.get_messages(Var.BIN_CHANNEL, msg_id)
-        media = get_media_from_message(log_msg)
-        file_ids[str(client.id)]=getattr(media, "file_id", "")
+    file_ids = {}
+    
+    async def get_id(client_id, client):
+        try:
+            log_msg = await client.get_messages(Var.BIN_CHANNEL, msg_id)
+            if log_msg and log_msg.media:
+                media = get_media_from_message(log_msg)
+                return str(client_id), getattr(media, "file_id", "")
+        except Exception as e:
+            logging.error(f"Error getting file_id for client {client_id}: {e}")
+        return None
+
+    results = await asyncio.gather(*[get_id(cid, c) for cid, c in multi_clients.items()])
+    for res in results:
+        if res:
+            file_ids[res[0]] = res[1]
 
     return file_ids
 

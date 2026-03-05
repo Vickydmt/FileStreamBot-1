@@ -48,9 +48,13 @@ async def gen_link(m: Message, _id, name: list) -> tuple[InlineKeyboardMarkup, s
     lang = Language(m)
     file_name = get_name(m)
     file_size = humanbytes(get_media_file_size(m))
-    page_link = f"{Var.URL}watch/{_id}"
-
-    stream_link = f"{Var.URL}dl/{_id}"
+    import random
+    available_urls = Var.MULTI_URLS if Var.MULTI_URLS else ([Var.WORKER_URL] if Var.WORKER_URL else [Var.URL])
+    base_url = random.choice(available_urls)
+    if not base_url.endswith("/"):
+        base_url += "/"
+    page_link = f"{base_url}watch/{_id}"
+    stream_link = f"{base_url}dl/{_id}"
     stream_text=lang.STREAM_MSG_TEXT.format(file_name, file_size, stream_link, page_link, name[0], name[1])
     reply_markup=InlineKeyboardMarkup(
         [
@@ -97,18 +101,22 @@ async def is_allowed(message: Message):
 
 async def validate_user(message: Message, lang=None) -> bool:
     if not await is_allowed(message):
+        print("User validation failed: Not in allowed users")
         return False
     await is_user_exist(message)
     if Var.TOS:
         if not await is_user_accepted_tos(message):
+            print("User validation failed: TOS not accepted")
             return False
 
     if not lang:
         lang = Language(message)
     if await is_user_banned(message, lang):
+        print("User validation failed: User banned")
         return False
     if Var.FORCE_UPDATES_CHANNEL:
         if not await is_user_joined(message,lang):
+            print("User validation failed: User not in update channel")
             return False
     return True
 

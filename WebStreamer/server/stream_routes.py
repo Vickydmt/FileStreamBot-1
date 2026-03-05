@@ -25,6 +25,8 @@ async def root_route_handler(_):
             "uptime": utils.get_readable_time(time.time() - StartTime),
             "telegram_bot": "@" + StreamBot.username,
             "connected_bots": len(multi_clients),
+            "multi_client_mode": Var.MULTI_CLIENT,
+            "workers_available": Var.WORKERS,
             "loads": dict(
                 ("bot" + str(c + 1), l)
                 for c, (_, l) in enumerate(
@@ -116,13 +118,7 @@ async def media_streamer(request: web.Request, db_id: str):
 
     req_length = until_bytes - from_bytes + 1
     part_count = math.ceil(until_bytes / chunk_size) - math.floor(offset / chunk_size)
-    if head:
-        body=None
-    else:
-        body = tg_connect.yield_file(
-            file_id, index, offset, first_part_cut, last_part_cut, part_count, chunk_size
-        )
-
+    
     mime_type = file_id.mime_type
     file_name = utils.get_name(file_id)
     disposition = "attachment"
@@ -130,12 +126,9 @@ async def media_streamer(request: web.Request, db_id: str):
     if not mime_type:
         mime_type = mimetypes.guess_type(file_name)[0] or "application/octet-stream"
 
-    # if "video/" in mime_type or "audio/" in mime_type:
-    #     disposition = "inline"
-
-    return web.Response(
+    response = web.StreamResponse(
         status=206 if range_header else 200,
-        body=body,
+        reason="Partial Content" if range_header else "OK",
         headers={
             "Content-Type": f"{mime_type}",
             "Content-Range": f"bytes {from_bytes}-{until_bytes}/{file_size}",
@@ -144,3 +137,17 @@ async def media_streamer(request: web.Request, db_id: str):
             "Accept-Ranges": "bytes",
         },
     )
+
+    await response.prepare(request)
+
+    if head:
+        return response
+
+    body = tg_connect.yield_file(
+        file_id, index, offset, first_part_cut, last_part_cut, part_count, chunk_size
+    )
+
+    async for chunk in body:
+        await response.write(chunk)
+
+    return response
